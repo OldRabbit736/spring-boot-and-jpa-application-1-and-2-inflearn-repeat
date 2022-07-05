@@ -24,8 +24,8 @@ public class Order {
     @OneToMany(mappedBy = "order")
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    @OneToOne
-    @JoinColumn(name = "delivery_id")
+    @OneToOne(optional = false)   // one to one이면... fk이고 unique인 것인가...?
+    @JoinColumn(name = "delivery_id", unique = true)
     private Delivery delivery;
 
     private LocalDateTime orderDate;
