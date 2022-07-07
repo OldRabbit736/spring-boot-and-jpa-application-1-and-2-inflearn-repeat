@@ -7,10 +7,12 @@ import lombok.Setter;
 import javax.persistence.*;
 
 @Entity
-@Getter @Setter
+@Getter
+@Setter
 public class OrderItem {
 
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     @Column(name = "order_item_id")
     private Long id;
 
@@ -22,7 +24,33 @@ public class OrderItem {
     @JoinColumn(name = "order_id")
     private Order order;
 
-    private int orderPrice; // 주문 당시 가격
+    private int itemPrice; // 주문 당시 가격
     private int count;  // 주문 수량
+
+    // 생성 메서드 //
+    // 쿠폰 등 본 가격과 차이가 나는 가격으로 주문 되는 경우도 있으므로 item 가격을 따로 받음
+    public static OrderItem createOrderItem(Item item, int itemPrice, int count) {
+        OrderItem orderItem = new OrderItem();
+        orderItem.setItem(item);
+        orderItem.setItemPrice(itemPrice);
+        orderItem.setCount(count);
+
+        item.removeStock(count);
+        return orderItem;
+    }
+
+    // 비즈니스 로직 //
+    public void cancel() {
+        getItem().addStock(count);
+    }
+
+    // 조회 로직 //
+    /**
+     * 주문 상품 가격 조회
+     */
+    public int getTotalPrice() {
+        return getItemPrice() * getCount();
+    }
+
 
 }
