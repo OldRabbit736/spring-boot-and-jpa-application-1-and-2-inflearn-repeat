@@ -1,7 +1,9 @@
 package jpabook.jpashop.domain;
 
 import jpabook.jpashop.domain.item.Item;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.*;
@@ -9,6 +11,9 @@ import javax.persistence.*;
 @Entity
 @Getter
 @Setter
+// factory 생성자 외의 방법으로 인스턴스를 생성하지 못하도록 protected로 설정하였다.
+// private이 아닌 protected로 한 이유는, JPA는 접근할 수 있는 기본 생성자를 필요로하기 때문이다.
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem {
 
     @Id

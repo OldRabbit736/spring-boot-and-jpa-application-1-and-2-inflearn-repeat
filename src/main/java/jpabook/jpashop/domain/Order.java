@@ -1,6 +1,8 @@
 package jpabook.jpashop.domain;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.*;
@@ -12,6 +14,7 @@ import java.util.stream.Collectors;
 @Entity
 @Table(name = "orders")
 @Getter @Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
 
     @Id @GeneratedValue
@@ -22,9 +25,16 @@ public class Order {
     @JoinColumn(name = "member_id")
     private Member member;
 
+    // OrderItem은 Order 외엔 참조하는 곳이 없다. (Order가 OrderItem의 private owner이다)
+    // 이런 경우 Cascade를 세팅하면 된다.
+    // 즉 OrderItem은 Order의 라이프싸이클에 종속적이다.
+    // 만약 OrderItem을 다른 엔티티에서 참조한다면, OrderItem에 cascade를 거는 대신,
+    // 따로 Repository를 만들어서 관리해야 한다.
+    // 이거 혹시... aggregate 개념과 관련있을까?
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
 
+    // Order가 Delivery의 private owner이다
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "delivery_id", unique = true) // one to one이면... fk이고 unique로?
     private Delivery delivery;
