@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import javax.validation.Valid;
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class MemberController {
 
     @PostMapping("members/new")
     public String create(@Valid MemberForm form, BindingResult result) {
+        // MemberForm은 화면 로직과 관련된 것이므로 Member entity와 분리해야 한다.
 
         if (result.hasErrors()) {
             return "members/createMemberForm";
@@ -40,5 +42,13 @@ public class MemberController {
         memberService.join(member);
 
         return "redirect:/";
+    }
+
+    @GetMapping("/members")
+    public String list(Model model) {
+        List<Member> members = memberService.findMembers();
+        // Member 객체를 그대로 전달하기 보다는 Dto로 변환해서 전달하는 것이 정석이다.
+        model.addAttribute("members", members);
+        return "members/memberList";
     }
 }
