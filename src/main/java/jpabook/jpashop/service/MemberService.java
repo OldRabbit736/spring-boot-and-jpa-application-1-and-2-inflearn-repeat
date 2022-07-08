@@ -43,4 +43,12 @@ public class MemberService {
         return memberRepository.findOne(memberId);
     }
 
+    // Member 인스턴스를 반환해도 되지만 command and query 분리를 따르는 것을 선택한다면 void 처리하는 것이 맞음
+    // 영속성 컨텍스트에 올라가 있는 member의 속성을 바꿈으로서 dirty checking 발동
+    // 메소드 마지막에 flush(db에 sql문 보내기), commit 차례대로 수행
+    @Transactional
+    public void update(Long id, String name) {
+        Member member = memberRepository.findOne(id);
+        member.setName(name);
+    }
 }
