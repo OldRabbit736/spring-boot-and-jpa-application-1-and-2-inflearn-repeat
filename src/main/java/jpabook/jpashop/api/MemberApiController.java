@@ -9,12 +9,51 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
 public class MemberApiController {
 
     private final MemberService memberService;
+
+    // 엔티티를 직접 외부에 노출하고 있다.
+    // 엔티티가 변경되면 API spec이 변경된다는 문제점이 있다.
+    // 더 자세한 설명은 아래 saveMemberV2 설명에서 확인할 수 있다.
+    // 또한 반환값 자체가 array로 되어 있기 때문에 나중에 응답값에 추가적인 필드를 넣기가 어렵다는 문제가 있다.
+    // 추가적인 필드를 넣기에 좋은 구조는 {}이다.
+    @GetMapping("/api/v1/members")
+    public List<Member> membersV1() {
+        return memberService.findMembers();
+    }
+
+    // collection 등의 값을 하나의 타입으로 감싸서(Result) 반환 --> Result에 추가적인 필드를 추가하기 쉬워졌다.
+    // Member 대신 MemberDto를 반환함으로써 외부로의 엔티티 노출을 막았다.
+    // MemberDto는 노출할 프로퍼티만 노출한다.
+    @GetMapping("/api/v2/members")
+    public Result<List<MemberDto>> membersV2() {
+        List<Member> findMembers = memberService.findMembers();
+
+        List<MemberDto> collect = findMembers.stream()
+                .map(member -> new MemberDto(member.getName()))
+                .collect(Collectors.toList());
+
+        return new Result<>(collect.size(), collect);
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class Result<T> {
+        private int count;
+        private T data;
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class MemberDto {
+        private String name;
+    }
 
     // 엔티티는 외부에 노출되면 안된다! (Member 엔티티가 파라미터로 들어있다.)
     @PostMapping("/api/v1/members")
