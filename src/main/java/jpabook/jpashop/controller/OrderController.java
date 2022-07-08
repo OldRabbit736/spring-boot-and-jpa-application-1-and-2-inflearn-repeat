@@ -1,16 +1,16 @@
 package jpabook.jpashop.controller;
 
 import jpabook.jpashop.domain.Member;
+import jpabook.jpashop.domain.Order;
 import jpabook.jpashop.domain.item.Item;
+import jpabook.jpashop.repository.OrderSearch;
 import jpabook.jpashop.service.ItemService;
 import jpabook.jpashop.service.MemberService;
 import jpabook.jpashop.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -48,6 +48,23 @@ public class OrderController {
         Long orderId = orderService.order(memberId, itemId, count);
 
         //return "redirect:/orders" + orderId;
+        return "redirect:/orders";
+    }
+
+    @GetMapping("/orders")
+    public String orderList(@ModelAttribute("orderSearch") OrderSearch orderSearch, Model model) {
+
+        // 이런 service에서 하는 일이 repository에 작업을 위임하는 것 뿐이라면
+        // 컨트롤러에서 바로 repository를 호출하는 것도 대안이 될 수 있다.
+        List<Order> orders = orderService.findOrders(orderSearch);
+        model.addAttribute("orders", orders);
+
+        return "order/orderList";
+    }
+
+    @PostMapping("/orders/{orderId}/cancel")
+    public String cancelOrder(@PathVariable("orderId") Long orderId) {
+        orderService.cancelOrder(orderId);
         return "redirect:/orders";
     }
 }
