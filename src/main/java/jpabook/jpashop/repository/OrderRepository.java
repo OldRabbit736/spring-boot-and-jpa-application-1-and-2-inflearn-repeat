@@ -33,10 +33,10 @@ public class OrderRepository {
     // 이것을 해결한 라이브러리가 QueryDSL이다!
     public List<Order> findAll(OrderSearch orderSearch) {
         return em.createQuery(
-                "select o from Order o join o.member m" +
-                        " where o.status = :status" +
-                        " and m.name like :name"
-                , Order.class)
+                        "select o from Order o join o.member m" +
+                                " where o.status = :status" +
+                                " and m.name like :name"
+                        , Order.class)
                 .setParameter("status", orderSearch.getOrderStatus())
                 .setParameter("name", orderSearch.getMemberName())
                 .setMaxResults(1000)    // 최대 1000건
@@ -68,4 +68,24 @@ public class OrderRepository {
         TypedQuery<Order> query = em.createQuery(cq).setMaxResults(1000);
         return query.getResultList();
     }
+
+    public List<Order> findAllWithMemberDelivery() {
+        return em.createQuery(
+                "select o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d",
+                // member와 delivery를 join함과 동시에 select절에 포함. (select o.*, m.*, d.*)
+                // order 객체의 member와 delivery 필드에 프록시 객체를 생성하지 않는다.
+                // 이것을 fetch join이라고 한다.
+                // 즉 order뿐만 아니라 member와 delivery 객체를 영속성 컨텍스트에 저장한다.
+                // fetch라는 것은 JPQL에만 있는 명령이다.
+                // N + 1 문제를 90% 해결할 수 있는 방법이다. (한 방 쿼리이기 때문에)
+                // 참고로 N + 1 문제는 EAGER이든 LAZY이든 나타나는 문제이다.
+                // EAGER는 그 필드를 포함하고 있는 객체에 대한 데이터를 받자 마자 자동으로 해당 필드에 대한 쿼리가 자동으로 발생하고
+                // LAZY는 그 필드를 사용할 때 쿼리가 발생할 뿐이다. 추가적인 쿼리가 나타나는 건 동일하다.
+                Order.class
+        ).getResultList();
+    }
+
 }
+

@@ -90,6 +90,16 @@ public class OrderSimpleApiController {
                 .collect(Collectors.toList());
     }
 
+    // fetch join으로 order, member, delivery를 한번에 가져오기 때문에
+    // 더 이상 member와 delivery 정보를 위해 추가적으로 sql을 날리지 않는다. (SimpleOrderDto로 변환 시)
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        return orders.stream()
+                .map(SimpleOrderDto::new)
+                .collect(Collectors.toList());
+    }
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
@@ -102,10 +112,16 @@ public class OrderSimpleApiController {
         // 크게 중요치 않은 곳(Dto)에서 의존하는 것이므로...
         public SimpleOrderDto(Order order) {
             orderId = order.getId();
-            memberName = order.getMember().getName();   // Lazy 로딩 - 영속성 컨텍스트에서 해당 member를 찾아보고 없으면 sql 날린다.
+
+            // Lazy 로딩 - 영속성 컨텍스트에서 해당 member를 찾아보고 없으면 sql 날린다.
+            // 하지만 fetch join의 방법으로 order에 member도 포함되어 있다면 추가적인 sql을 날리지 않는다. --> 매우 추천
+            memberName = order.getMember().getName();
+
             orderDate = order.getOrderDate();
             orderStatus = order.getStatus();
-            deliveryAddress = order.getDelivery().getAddress(); // Lazy 로딩
+
+            // Lazy 로딩 또는 fetch join으로 끝
+            deliveryAddress = order.getDelivery().getAddress();
         }
     }
 
