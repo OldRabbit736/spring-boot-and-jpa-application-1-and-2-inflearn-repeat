@@ -1,13 +1,18 @@
 package jpabook.jpashop.api;
 
+import jpabook.jpashop.domain.Address;
 import jpabook.jpashop.domain.Order;
+import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * xToOne(ManyToOne, OneToOne)
@@ -41,10 +46,67 @@ public class OrderSimpleApiController {
     public List<Order> ordersV1() {
         List<Order> all = orderRepository.findAllByCriteria(new OrderSearch());
         for (Order order : all) {
-            order.getMember().getName(); // member의 아무 필드나 조회 --> Lazy 강제 초기화
-            order.getDelivery().getAddress(); // delivery의 아무 필드나 조회 --> Lazy 강제 초기화
+            order.getMember().getName(); // member의 아무 필드나 조회 --> Lazy 강제 로딩
+            order.getDelivery().getAddress(); // delivery의 아무 필드나 조회 --> Lazy 강제 로딩
         }
         return all;
+    }
+
+    // 참고 - OSIV
+    // Lazy 로딩은 영속성 컨텍스트 내에서만 가능하다.
+    // 프록시를 대신 밀어 넣고, 추후에 프록시를 이용해 데이터를 불러오는 등의 기능은 영속성 컨텍스트에서 지원하기 때문일 것이다.
+    // 즉 영속성 컨텍스트 상태에서만 지연 로딩이 동작한다. (변경 감지도 마찬가지)
+    // 하지만 지금까지 배워온 바에 따르면, 영속성 컨텍스트의 라이프싸이클은 트랜잭션이 시작될 때와 트랜잭션이 끝날 때 그 사이에
+    // 영속성 컨텍스트가 생성되었다가 사라진다는 것이다.
+    // 위의 ordersV1이나 아래의 ordersV2는 트랜잭션이 전혀 없다. 그렇다면 영속성 컨텍스트 또한 존재하지 않을텐데
+    // 왜 Lazy 로딩이 동작하는 것일까?
+    // 사실 transaction이 없어도 영속성 컨텍스트가 생성되어 살아있다!
+    // 이 기능을 OSIV(open-session-in-view)라고 한다.
+    // 이 기능은 클라이언트 요청이 들어올 때 영속성 컨텍스트를 생성해서 요청이 반환될 때까지 영속성 컨텍스트를 유지시켜준다.
+    // 다만 엔티티 수정은 트랜잭션이 있는 계층에서만 동작한다. 트랜잭션이 없는 프레젠테이션 계층은 지연 로딩을 포함해 조회만 할 수 있다.
+    // https://ykh6242.tistory.com/entry/JPA-OSIVOpen-Session-In-View%EC%99%80-%EC%84%B1%EB%8A%A5-%EC%B5%9C%EC%A0%81%ED%99%94
+    // https://tecoble.techcourse.co.kr/post/2020-09-11-osiv/
+    // 책 "자바 ORM 표준 JPA 프로그래밍" 13장 참조
+    // 기본적으로 OSIV는 켜져있지만 끌 수도 있다. (application.yml 파일등에서 설정 가능)
+
+
+    // DTO 도입으로 필요한 항목만 노출하게 되어 좋아졌다.
+    // 하지만 여전히 Lazy 항목을 추가로 로딩해주어야 한다.
+    // order 1건당 2건의 쿼리가 추가적으로 발생한다. (Member, Delivery) --> 즉 N + 1의 문제이다.
+    // 1은 첫번째 쿼리(order 컬렉션을 가져오는 쿼리)
+    // N은 연관되어 있는 엔티티를 조회하는 쿼리 개수를 뜻한다.
+    // N + 1 --> 1 + Member N + Delivery N = 1 + 2N  (N: order의 개수)
+    // (단 지연로딩은 영속성 컨텍스트에서 조회하므로, 이미 조회된 엔티티의 경우 쿼리를 생략한다.)
+    // 즉, order가 2개이면 최대 총 쿼리는 5건이라는 것이다. (V1과 쿼리수는 같다)
+    // LAZY를 EAGER로 변경하는 것도 해결책은 되지 못한다.
+    // 그것도 마찬가지로 order를 먼저 가지고 오고 그 후에 EAGER인 항목들을 추가로 쿼리를 날려 가져오게 되는데
+    // 그것만 하더라도 이미 쿼리의 개수에서 LAZY와 큰 차이가 없을 뿐더러,
+    // 나가는 쿼리 자체도 난해하기 때문에 유지보수하기가 어려워진다.
+    @GetMapping("/api/v2/simple-orders")
+    public List<SimpleOrderDto> ordersV2() {
+        List<Order> orders = orderRepository.findAllByCriteria(new OrderSearch());
+        return orders.stream()
+                .map(SimpleOrderDto::new)
+                .collect(Collectors.toList());
+    }
+
+    @Data
+    static class SimpleOrderDto {
+        private Long orderId;
+        private String memberName;
+        private LocalDateTime orderDate;
+        private OrderStatus orderStatus;
+        private Address deliveryAddress;
+
+        // Dto가 엔티티를 파라미터로 받는 것은 크게 문제되지 않는다.
+        // 크게 중요치 않은 곳(Dto)에서 의존하는 것이므로...
+        public SimpleOrderDto(Order order) {
+            orderId = order.getId();
+            memberName = order.getMember().getName();   // Lazy 로딩 - 영속성 컨텍스트에서 해당 member를 찾아보고 없으면 sql 날린다.
+            orderDate = order.getOrderDate();
+            orderStatus = order.getStatus();
+            deliveryAddress = order.getDelivery().getAddress(); // Lazy 로딩
+        }
     }
 
 
