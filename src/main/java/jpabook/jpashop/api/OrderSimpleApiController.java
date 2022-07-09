@@ -5,6 +5,7 @@ import jpabook.jpashop.domain.Order;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import jpabook.jpashop.repository.OrderSimpleQueryDto;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,7 @@ public class OrderSimpleApiController {
     private final OrderRepository orderRepository;
 
     // Member <--> Order 양방향 연관관계 때문에 무한루프에 빠진다! --> 예외 발생
-    // 그 외에도 양방향 걸리는 곳 모두 무한루프에 걸리게 한다.
+    // 그 외에도 양방향 걸리는 곳 모두 무한루프에 걸리게 한다. (StackOverFlowError)
     // 따라서 양방향 중 한 곳에 JsonIgnore를 걸어서 양방향을 끊어주어야 하는데 이것도 완벽하지 않다.
     // 왜냐하면 Lazy로 설정된 프로퍼티에는 프록시 객체가 들어서게 되는데,
     // 객체를 json으로 변환하는 jackson 라이브러리가 Member 객체를 기대하고 변환하려고 시도할 때
@@ -79,9 +80,9 @@ public class OrderSimpleApiController {
     // (단 지연로딩은 영속성 컨텍스트에서 조회하므로, 이미 조회된 엔티티의 경우 쿼리를 생략한다.)
     // 즉, order가 2개이면 최대 총 쿼리는 5건이라는 것이다. (V1과 쿼리수는 같다)
     // LAZY를 EAGER로 변경하는 것도 해결책은 되지 못한다.
-    // 그것도 마찬가지로 order를 먼저 가지고 오고 그 후에 EAGER인 항목들을 추가로 쿼리를 날려 가져오게 되는데
+    // 그것도 마찬가지로 order를 먼저 가지고 오고 그 후에 EAGER인 항목들을 자동으로 추가로 쿼리를 날려 가져오게 되는데
     // 그것만 하더라도 이미 쿼리의 개수에서 LAZY와 큰 차이가 없을 뿐더러,
-    // 나가는 쿼리 자체도 난해하기 때문에 유지보수하기가 어려워진다.
+    // 나가는 쿼리 자체도 난해하기 때문에 유지보수하기가 어려워진다. (EAGER일 때와 LAZY일 때의 쿼리는 다르다)
     @GetMapping("/api/v2/simple-orders")
     public List<SimpleOrderDto> ordersV2() {
         List<Order> orders = orderRepository.findAllByCriteria(new OrderSearch());
@@ -100,6 +101,38 @@ public class OrderSimpleApiController {
                 .collect(Collectors.toList());
     }
 
+    // JPA에서 데이터를 바로 Dto로 변환하여 넘겨준다.
+    // 쿼리 select 절에서 필요한 데이터만 가져온다. (네트워크 용량을 적게 사용한다. 그러나.. 대부분 그 차이가 미비하다.)
+    // 엔티티에서 Dto 변환 과정이 없다.
+    // 소폭의 최적화가 되었다.
+    // 그렇다면 V3보다 V4가 좋은것인가..? 아니다 장단점이 있다.
+    // V3는 repository단에서 order 엔티티를 온전하게 반환하기 때문에
+    // 그 이후 가공 프로세스를 원하는 것으로 적용할 수 있다는 장점이 있다.
+    // SimpleOrderDto 말고 다른 Dto 등으로 변환할 수 있는 것이다.
+    // 즉 재사용성이 뛰어나다.
+    // 반면 V4는 최적화는 좋을지는 모르지만,
+    // repository단에서 바로 Dto를 반환하기 때문에 용도가 한정되어 있다.
+    // 즉 범용성(재사용성)이 떨어지는 것이다.
+    // 다른말로 하면, API 스펙에 맞춘 코드가 리포지토리에 적용된다는 것이다.
+    // presentation 로직이 리포지토리에 침범한 것이다!
+    // 리포지토리의 근본 역할을 생각해보면 엔티티를 순수하게 반환하는 것이 더 리포지토리에 맞다고 할 수 있겠다.
+    // 그럼 둘 중에 어느것을 사용해야 하나?
+    // 대부분의 경우에는 V3가 적합하겠지만, 성능에 매우 민감한 API인 경우 V4가 더 적합할 수도 있다.
+    // V4의 문제를 해결할 수 있는 하나의 방법이 있는데,
+    // 그것은 바로 최적화 쿼리만 모아 놓는 리포지토리를 따로 생성하는 것이다.
+    // 그럼으로써 순수한 리포지토리(엔티티 반환)와
+    // 순수하지는 않지만 화면에 최적화된 리포지토리(Dto등 반환)가 나뉘어지게 되는 것이다.
+    // 후자를 QueryRepository 등으로 부르는 것 같다. (또는 서비스 단에서 만든다면 QueryService)
+    /* 쿼리 방식 선택 권장 순서 */
+    // 1. 우선 엔티티를 DTO로 변환하는 방법을 선택한다. (V2)
+    // 2. 필요하면 fetch join으로 성능을 최적화 한다. --> 대부분의 성능 이슈가 해결된다. (95% 이상) (V3)
+    // 3. 그래도 안되면 DTO로 직접 조회하는 방법을 사용한다. (V4)
+    // 4. 최후의 방법은 JPA가 제공하는 네이티브 SQL이나 스프링 JDBC Template을 사용해서 SQL을 직접 사용한다.
+    @GetMapping("/api/v4/simple-orders")
+    public List<OrderSimpleQueryDto> ordersV4() {
+        return orderRepository.findOrderDtos();
+    }
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
@@ -109,12 +142,14 @@ public class OrderSimpleApiController {
         private Address deliveryAddress;
 
         // Dto가 엔티티를 파라미터로 받는 것은 크게 문제되지 않는다.
-        // 크게 중요치 않은 곳(Dto)에서 의존하는 것이므로...
+        // 크게 중요치 않은 곳(Dto)에서 의존하는 것이므로... (dependency 방향이 외부에서 안쪽이므로)
         public SimpleOrderDto(Order order) {
             orderId = order.getId();
 
-            // Lazy 로딩 - 영속성 컨텍스트에서 해당 member를 찾아보고 없으면 sql 날린다.
-            // 하지만 fetch join의 방법으로 order에 member도 포함되어 있다면 추가적인 sql을 날리지 않는다. --> 매우 추천
+            // Lazy 로딩 - 프록시 객체가 영속성 컨텍스트(1차캐쉬)에 해당 member를 요청한다.
+            // member가 없다면 누군가가(TODO: 누가 쿼리를 날리는가? entity manager? 영속성 컨텍스트?)
+            // db에 쿼리를 날려 member를 가져온다.
+            // 하지만 fetch join의 방법으로 order를 가지고올 때 member도 같이 가져올 수 있다. --> 매우 추천
             memberName = order.getMember().getName();
 
             orderDate = order.getOrderDate();
@@ -124,7 +159,5 @@ public class OrderSimpleApiController {
             deliveryAddress = order.getDelivery().getAddress();
         }
     }
-
-
 
 }

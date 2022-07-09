@@ -23,7 +23,7 @@ public class Order {
 
     // Lazy로 설정하게 되면 member에는 프록시 member 인스턴스가 저장된다.
     // 추후 member 프로퍼티에 누군가가 접근했을 때 프록시 객체가 실제 member 정보를
-    // db에 요청하여 정보를 가져온다.
+    // 영속성 컨텍스트에 요청하고, 없다면 db에 요청하여(누가?) 정보를 가져온다.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
     private Member member;

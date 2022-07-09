@@ -74,7 +74,8 @@ public class OrderRepository {
                 "select o from Order o" +
                         " join fetch o.member m" +
                         " join fetch o.delivery d",
-                // member와 delivery를 join함과 동시에 select절에 포함. (select o.*, m.*, d.*)
+                // member와 delivery를 join함과 동시에 select절에 포함.
+                // "select o" 는 일반적인 sql문에서의 "select o.*, m.*, d.*" 과 같은 뜻이다.
                 // order 객체의 member와 delivery 필드에 프록시 객체를 생성하지 않는다.
                 // 이것을 fetch join이라고 한다.
                 // 즉 order뿐만 아니라 member와 delivery 객체를 영속성 컨텍스트에 저장한다.
@@ -83,9 +84,26 @@ public class OrderRepository {
                 // 참고로 N + 1 문제는 EAGER이든 LAZY이든 나타나는 문제이다.
                 // EAGER는 그 필드를 포함하고 있는 객체에 대한 데이터를 받자 마자 자동으로 해당 필드에 대한 쿼리가 자동으로 발생하고
                 // LAZY는 그 필드를 사용할 때 쿼리가 발생할 뿐이다. 추가적인 쿼리가 나타나는 건 동일하다.
+
                 Order.class
         ).getResultList();
     }
 
+    // join과 fetch join의 차이는?
+    // https://cobbybb.tistory.com/18
+
+    // DTO로 바로 변환
+    public List<OrderSimpleQueryDto> findOrderDtos() {
+        return em.createQuery(
+                // new operation에 entity(o, m, d 같은 값)를 인수로 전달할 수는 있지만
+                // 그 경우 들어가는 값은 식별자 값이 되어버린다.
+                // 값을 하나하나 넣어주어야 한다.
+                // 어차피 연관관계 엔티티의 일부 필드값만 필요하므로 일반 join을 사용하였다.
+                "select new jpabook.jpashop.repository.OrderSimpleQueryDto(o.id, m.name, o.orderDate, o.status, d.address)" +
+                        " from Order o" +
+                        " join o.member m" +
+                        " join o.delivery d", OrderSimpleQueryDto.class
+        ).getResultList();
+    }
 }
 
