@@ -18,10 +18,10 @@ import java.util.stream.Collectors;
 /**
  * 여기서는 OneToMany 관계가 있는 OrderItem 또한 포함하는 Api를 작성한다.
  * xToOne(ManyToOne, OneToOne)
-     * Order -> Member
-     * Order -> Delivery
+ * Order -> Member
+ * Order -> Delivery
  * OneToMany
-     * Order -> OrderItem
+ * Order -> OrderItem
  */
 
 @RestController
@@ -60,6 +60,17 @@ public class OrderApiController {
     @GetMapping("/api/v2/orders")
     public List<OrderDto> ordersV2() {
         List<Order> orders = orderRepository.findAllByCriteria(new OrderSearch());
+        return orders.stream().map(OrderDto::new).collect(Collectors.toList());
+    }
+
+    // fetch join을 이용하여 필요한 객체를 한꺼번에 DB로부터 가져온다. (쿼리 1회)
+    // 또한 JPQL에 distinct 키워드를 사용하여 중복(id가 같은)되는 Order 엔티티를 제거하였다.
+    // V2와 V3의 컨트롤러단 코드는 거의 동일하다. 다만 리포지토리에서 호출하는 메서드가 다를뿐이다.
+    // 겉으로는 아주 작은 차이지만 JPA의 마법으로 큰 차이가 나는 것이다.
+    // 그것도 매우 간단하게 말이다. fetch join과 함께 탐색할 엔티티를 지정만 해 주면 된다.
+    @GetMapping("/api/v3/orders")
+    public List<OrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithItem();
         return orders.stream().map(OrderDto::new).collect(Collectors.toList());
     }
 

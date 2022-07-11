@@ -105,5 +105,55 @@ public class OrderRepository {
                         " join o.delivery d", OrderSimpleQueryDto.class
         ).getResultList();
     }
+
+    // ManyToOne, OneToOne만 상대할 때와는 다르게 Collection, 즉, ManyToOne을 상대할 때는 좀 더 조심해야 한다.
+    // OrderItems 때문에 Order의 개수는 뻥튀기가 되어버린다. (정확히는 조인한 order rows 개수가 order item 개수와 동일해 진다)
+    // 이렇게 뻥튀기 되어버린 여러 order 객체들은 사실 같은 객체이다.
+    // order의 개수 그대로 중복없이 받고 싶다면 distinct 키워드를 넣어주면 된다.
+    // JPQL에서 distinct 키워드의 효과는 다음 2가지이다.
+    // db에 날리는 query에 distinct를 추가해준다. (쿼리를 DB에 보낼 시점에)
+    // JPA가 기준이 되는 엔티티(;루트 엔티티. 여기서는 Order) 중 하나만 남기고 나머지를 없앤다. 즉 id가 중복되는 객체를 없앤다.
+    // (DB에서 결과를 받아 객체를 생성한 후)
+    // 책 "자바 ORM 표준 JPA 프로그래밍" p.378 참조하면 좋다.
+    // 이 fetch join의 효과로 쿼리는 1회만 발생한다.
+    // 여기서는 그러나 어마어마한 단점이 있다. -- 페이징이 불가능하다!!
+    // 컬렉션 페치 조인 시 페이징이 불가능하다.
+    // 더 정확하게 말하자면 db 쿼리문에 페이징 관련 쿼리를 날리는 것은 불가능하고
+    // 페이징 처리를 어플리케이션 단에서 진행하게 된다.
+    // WARN - HHH000104: firstResult/maxResults specified with collection fetch; applying in memory!
+    // 그 이유는 다음과 같다.
+    // 우리는 order를 기준으로 페이징 하길 원하지만, 사길 반환되는 row를 생각해보면
+    // row의 개수는 order item의 개수가 되어 버린다.
+    // 따라서 order를 기준으로 페이징하기가 매우 난감해 지는 것이다.
+    // Hibernate는 이런 상황을 어떻게라도 극복하려고, 쿼리로 있는 데이터는 모두 가져오고
+    // 어플리케이션단에서 페이징을 처리해버린 것이다.
+    // 이런 상황이기 때문에 1:다 컬렉션이 포함되어 있는 fetch join은 쓰면 위험할 수 있다.
+    // 페이징이 안되기 때문에 있는 데이터를 다 긁어오게 되기 때문이다. 부하가 매우 많이 걸릴 수 있다.
+    // ManyToOne, OneToOne 걸려있는 엔티티들은 마음껏 fetch join해도 된다.
+    // 그러나 OneToMany 엔티티들을 fetch join하게 되면.... 다 긁어와야 한다.
+    // 결과적으로,
+    // 1. 하이버네이트는 경고 로그를 남긴다.
+    // 2. 모든 데이터를 DB에서 읽어온다.
+    // 3. 메모리에서 페이징 해버린다. (매우 위험)
+    // 자세한 내용은 "자바 ORM 표준 JPA 프로그래밍" 페치 조인 부분을 참고하자. (p. 381)
+    // 참고
+    // 컬렉션 페치 조인은 1개만 사용할 수 있다. 컬렉션 둘 이상에 페치 조인을 사용하면 안된다.
+    // 데이터가 부정합하게 조회될 수 있다.
+    // 자세한 내용은 "자바 ORM 표준 JPA 프로그래밍" 을 참고하자.
+    // 결론: OneToMany 엔티티는 fetch join을... 데이터가 많을 경우 절대 하지 말자.
+    public List<Order> findAllWithItem() {
+        return em.createQuery(
+                "select distinct o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d" +
+                        " join fetch o.orderItems oi" +
+                        " join fetch oi.item i", Order.class)
+                // 페이징 동작은 하지만
+                // 쿼리 레벨에서 동작하는 것이 아닌 애플리케이션
+                // 레벨에서 동작한다.
+                //.setFirstResult(1)
+                //.setMaxResults(100)
+                .getResultList();
+    }
 }
 
