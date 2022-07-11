@@ -29,15 +29,15 @@ public class OrderItem {
     @JoinColumn(name = "order_id")
     private Order order;
 
-    private int itemPrice; // 주문 당시 가격
+    private int orderPrice; // 주문 당시 가격
     private int count;  // 주문 수량
 
     // 생성 메서드 //
     // 쿠폰 등 본 가격과 차이가 나는 가격으로 주문 되는 경우도 있으므로 item 가격을 따로 받음
-    public static OrderItem createOrderItem(Item item, int itemPrice, int count) {
+    public static OrderItem createOrderItem(Item item, int orderPrice, int count) {
         OrderItem orderItem = new OrderItem();
         orderItem.setItem(item);
-        orderItem.setItemPrice(itemPrice);
+        orderItem.setOrderPrice(orderPrice);
         orderItem.setCount(count);
 
         item.removeStock(count);
@@ -54,7 +54,7 @@ public class OrderItem {
      * 주문 상품 가격 조회
      */
     public int getTotalPrice() {
-        return getItemPrice() * getCount();
+        return getOrderPrice() * getCount();
     }
 
 

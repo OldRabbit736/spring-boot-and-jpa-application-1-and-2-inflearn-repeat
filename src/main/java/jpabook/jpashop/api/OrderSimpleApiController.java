@@ -16,11 +16,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * 여기서는 xToOne 관계에 있는 Member와 Delivery만 포함하는 Api를 작성한다.
  * xToOne(ManyToOne, OneToOne)
- * Order
- * Order -> Member
- * Order -> Delivery
+     * Order -> Member
+     * Order -> Delivery
  */
+
 @RestController
 @RequiredArgsConstructor
 public class OrderSimpleApiController {

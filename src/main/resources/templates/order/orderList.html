@@ -41,7 +41,7 @@
                 <td th:text="${item.id}"></td>
                 <td th:text="${item.member.name}"></td>
                 <td th:text="${item.orderItems[0].item.name}"></td>
-                <td th:text="${item.orderItems[0].itemPrice}"></td>
+                <td th:text="${item.orderItems[0].getOrderPrice}"></td>
                 <td th:text="${item.orderItems[0].count}"></td>
                 <td th:text="${item.status}"></td>
                 <td th:text="${item.orderDate}"></td>
