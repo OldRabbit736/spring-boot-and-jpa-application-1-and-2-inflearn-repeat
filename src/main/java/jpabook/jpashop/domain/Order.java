@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -34,6 +35,7 @@ public class Order {
     // 만약 OrderItem을 다른 엔티티에서 참조한다면, OrderItem에 cascade를 거는 대신,
     // 따로 Repository를 만들어서 관리해야 한다.
     // 이거 혹시... aggregate 개념과 관련있을까?
+    //@BatchSize(size = 1000) // batch fetch 컬렉션 적용
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
 

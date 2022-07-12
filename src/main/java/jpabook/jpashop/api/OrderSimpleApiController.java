@@ -97,6 +97,9 @@ public class OrderSimpleApiController {
     @GetMapping("/api/v3/simple-orders")
     public List<SimpleOrderDto> ordersV3() {
         List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        //System.out.println("member : " + orders.get(0).getMember());
+        // Member 객체를 프린트 해 보면, 프록시 객체가 아니라 Member 객체로 찍히는 것을 확인할 수 있다.
+        // 즉 fetch join이 Member 객체를 프록시가 아닌 진짜 객체로 생성할 수 있게 해 준다.
         return orders.stream()
                 .map(SimpleOrderDto::new)
                 .collect(Collectors.toList());

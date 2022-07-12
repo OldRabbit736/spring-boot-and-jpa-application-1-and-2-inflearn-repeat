@@ -71,22 +71,20 @@ public class OrderRepository {
 
     public List<Order> findAllWithMemberDelivery() {
         return em.createQuery(
-                "select o from Order o" +
-                        " join fetch o.member m" +
-                        " join fetch o.delivery d",
-                // member와 delivery를 join함과 동시에 select절에 포함.
-                // "select o" 는 일반적인 sql문에서의 "select o.*, m.*, d.*" 과 같은 뜻이다.
-                // order 객체의 member와 delivery 필드에 프록시 객체를 생성하지 않는다.
-                // 이것을 fetch join이라고 한다.
-                // 즉 order뿐만 아니라 member와 delivery 객체를 영속성 컨텍스트에 저장한다.
-                // fetch라는 것은 JPQL에만 있는 명령이다.
-                // N + 1 문제를 90% 해결할 수 있는 방법이다. (한 방 쿼리이기 때문에)
-                // 참고로 N + 1 문제는 EAGER이든 LAZY이든 나타나는 문제이다.
-                // EAGER는 그 필드를 포함하고 있는 객체에 대한 데이터를 받자 마자 자동으로 해당 필드에 대한 쿼리가 자동으로 발생하고
-                // LAZY는 그 필드를 사용할 때 쿼리가 발생할 뿐이다. 추가적인 쿼리가 나타나는 건 동일하다.
-
-                Order.class
-        ).getResultList();
+                        "select o from Order o" +
+                                " join fetch o.member m" +
+                                " join fetch o.delivery d", Order.class)
+                .getResultList();
+        // member와 delivery를 join함과 동시에 select절에 포함.
+        // "select o" 는 일반적인 sql문에서의 "select o.*, m.*, d.*" 과 같은 뜻이다.
+        // order 객체의 member와 delivery 필드에 프록시 객체를 생성하지 않는다.
+        // 이것을 fetch join이라고 한다.
+        // 즉 order뿐만 아니라 member와 delivery 객체를 영속성 컨텍스트에 저장한다.
+        // fetch라는 것은 JPQL에만 있는 명령이다.
+        // N + 1 문제를 90% 해결할 수 있는 방법이다. (한 방 쿼리이기 때문에)
+        // 참고로 N + 1 문제는 EAGER이든 LAZY이든 나타나는 문제이다.
+        // EAGER는 그 필드를 포함하고 있는 객체에 대한 데이터를 받자 마자 자동으로 해당 필드에 대한 쿼리가 자동으로 발생하고
+        // LAZY는 그 필드를 사용할 때 쿼리가 발생할 뿐이다. 추가적인 쿼리가 나타나는 건 동일하다.
     }
 
     // join과 fetch join의 차이는?
@@ -143,16 +141,37 @@ public class OrderRepository {
     // 결론: OneToMany 엔티티는 fetch join을... 데이터가 많을 경우 절대 하지 말자.
     public List<Order> findAllWithItem() {
         return em.createQuery(
-                "select distinct o from Order o" +
-                        " join fetch o.member m" +
-                        " join fetch o.delivery d" +
-                        " join fetch o.orderItems oi" +
-                        " join fetch oi.item i", Order.class)
+                        "select distinct o from Order o" +
+                                " join fetch o.member m" +
+                                " join fetch o.delivery d" +
+                                " join fetch o.orderItems oi" +
+                                " join fetch oi.item i", Order.class)
                 // 페이징 동작은 하지만
                 // 쿼리 레벨에서 동작하는 것이 아닌 애플리케이션
                 // 레벨에서 동작한다.
                 //.setFirstResult(1)
                 //.setMaxResults(100)
+                .getResultList();
+    }
+
+    // findAllWithMemberDelivery overloading 버전 - offset과 limit 적용
+    public List<Order> findAllWithMemberDelivery(int offset, int limit) {
+        return em.createQuery(
+                        "select o from Order o" +
+                                " join fetch o.member m" +
+                                " join fetch o.delivery d",
+                        Order.class)
+                .setFirstResult(offset)
+                .setMaxResults(limit)
+                .getResultList();
+    }
+
+    // findAllWithMemberDelivery와 동일하지만 member와 delivery의 fetch join을 삭제하여 order만 조회하도록 했다.
+    public List<Order> findAllWithoutMemberDelivery(int offset, int limit) {
+        return em.createQuery(
+                        "select o from Order o", Order.class)
+                .setFirstResult(offset)
+                .setMaxResults(limit)
                 .getResultList();
     }
 }
