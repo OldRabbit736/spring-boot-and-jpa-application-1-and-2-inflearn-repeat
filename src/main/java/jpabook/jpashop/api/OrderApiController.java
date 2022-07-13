@@ -6,6 +6,8 @@ import jpabook.jpashop.domain.OrderItem;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import jpabook.jpashop.repository.order.query.OrderQueryDto;
+import jpabook.jpashop.repository.order.query.OrderQueryRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 public class OrderApiController {
 
     private final OrderRepository orderRepository;
+    private final OrderQueryRepository orderQueryRepository;
 
     // 엔티티 직접 노출
     // OrderSimpleApiController의 v1에서 설명했다시피, 안티패턴이다.
@@ -141,6 +144,24 @@ public class OrderApiController {
                 .map(OrderDto::new)
                 .collect(Collectors.toList());
 
+    }
+
+    /*
+     JPA에서 DTO를 직접 반환하는 버전
+     - DTO 로직은 화면 로직과 마찬가지이고 따라서 DTO를 반환하는 레포지토리는 "쿼리 레포지토리"로 따로 생성한다.
+     - 엔티티 반환하는 "순수 레포지토리"와 "쿼리 레포지토리"는 생명, 유지보수 싸이클이 다르기 때문에 따로 관리하는 것이 좋다.
+
+     쿼리
+     - 루트 1번, 컬렉션 N번 실행 (N + 1)
+     - ToOne 관계들을 루트에 포함하여 먼저 조회하고, ToMany 관계는 각각 별도로 조회한다.
+        - ToOne 관계는 조인해도 데이터 row 수가 증가하지 않는다.
+        - ToMany 관계는 조인하면 row 수를 증가시킨다.
+     - row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고,
+       ToMany 관계는 최적화 하기 어려우므로 별도의 메서드로 조회한다.
+     */
+    @GetMapping("/api/v4/orders")
+    public List<OrderQueryDto> ordersV4() {
+        return orderQueryRepository.findOrderQueryDtos();
     }
 
     @Getter
