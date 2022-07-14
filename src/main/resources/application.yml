@@ -14,6 +14,7 @@ spring:
         format_sql: true
         default_batch_fetch_size: 100
     database: h2
+    #open-in-view: false   // 기본값 true
 
 logging:
   level:
