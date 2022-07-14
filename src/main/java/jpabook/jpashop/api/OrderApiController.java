@@ -6,6 +6,8 @@ import jpabook.jpashop.domain.OrderItem;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.repository.OrderRepository;
 import jpabook.jpashop.repository.OrderSearch;
+import jpabook.jpashop.repository.order.query.OrderFlatDto;
+import jpabook.jpashop.repository.order.query.OrderItemQueryDto;
 import jpabook.jpashop.repository.order.query.OrderQueryDto;
 import jpabook.jpashop.repository.order.query.OrderQueryRepository;
 import lombok.Getter;
@@ -16,7 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
 
 /**
  * 여기서는 OneToMany 관계가 있는 OrderItem 또한 포함하는 Api를 작성한다.
@@ -132,7 +136,10 @@ public class OrderApiController {
     // 따라서 멘 처음 order를 조회한 후, member, delivery, order item, item 모두 batch fetch로 조회한다.
     // 즉 1(Order) + 1(Member) + 1(Delivery) + 1(OrderItem) + 1(Item) 쿼리가 발생한다.
     // 나쁘진 않다. 그러나 확실히 앞의 것보다 쿼리가 더 발생하긴 한다.
-    /** 잠깐... 이거 혹시... 멘토님이 언급했던 최대한 join 없이 쿼리를 날리는 practice가 이것을 가리키는 것이었나? **/
+
+    /**
+     * 잠깐... 이거 혹시... 멘토님이 언급했던 최대한 join 없이 쿼리를 날리는 practice가 이것을 가리키는 것이었나?
+     **/
     @GetMapping("/api/v3.2/orders")
     public List<OrderDto> ordersV3_2(
             @RequestParam(value = "offset", defaultValue = "0") int offset,
@@ -183,6 +190,40 @@ public class OrderApiController {
     @GetMapping("/api/v5/orders")
     public List<OrderQueryDto> ordersV5() {
         return orderQueryRepository.findAllByDto_optimization();
+    }
+
+    /*
+    JPA에서 DTO를 직접 반환하는 버전 - 플랫 데이터 최적화
+
+    한줄로 만든 DTO를 다시 분해하고 조립하는 과정을 거쳐야 한다.
+
+    쿼리
+    - 모두 조인하기 때문에 1회
+
+    단점
+    - 쿼리는 한번이지만 조인으로 인해 DB에서 애플리케이션에 전달하는 데이터에 중복 데이터가 추가되므로
+      상황에 따라 V5보다 더 느릴 수 있다.
+    - 애플리케이션에서 추가 작업이 크다.
+    - 페이징 불가능
+     */
+    @GetMapping("/api/v6/orders")
+    public List<OrderQueryDto> ordersV6() {
+        List<OrderFlatDto> flats = orderQueryRepository.findAllByDto_flat();
+
+        // List<OrderFlatDto> --> List<OrderQueryDto>
+        // OrderQueryDto를 key로 사용하고 OrderItemQueryDto를 value로 분류한 후
+        // key에 소속되어 있는 value를 key의 orderItems에 set 하였다.
+        // OrderQueryDto를 key로 사용한 덕분에 distinct한 OrderQueryDto만 key로 정리된다.
+        // OrderQueryDto를 key로 사용하기 때문에 OrderQueryDto의 hash, equals 메서드가 매우 중요하다.
+        // orderId 기준으로 판단하는 것으로 재 정의하였다.
+        return flats.stream()
+                .collect(Collectors.groupingBy(
+                        o -> new OrderQueryDto(o.getOrderId(), o.getName(), o.getOrderDate(), o.getOrderStatus(), o.getAddress()),
+                        Collectors.mapping(o -> new OrderItemQueryDto(o.getOrderId(), o.getItemName(), o.getOrderPrice(), o.getCount()), Collectors.toList())
+                )).entrySet().stream()
+                .map(e -> new OrderQueryDto(e.getKey().getOrderId(), e.getKey().getName(), e.getKey().getOrderDate(), e.getKey().getOrderStatus(),
+                        e.getKey().getAddress(), e.getValue()))
+                .collect(Collectors.toList());
     }
 
     @Getter
