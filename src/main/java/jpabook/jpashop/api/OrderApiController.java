@@ -158,10 +158,31 @@ public class OrderApiController {
         - ToMany 관계는 조인하면 row 수를 증가시킨다.
      - row 수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고,
        ToMany 관계는 최적화 하기 어려우므로 별도의 메서드로 조회한다.
+
+     의문점
+     - 그런데 왜 여기서는 batch fetch가 작동하지 않았을까?
+     - 아마도... Dto가 순수한 데이터만 저장하는 객체라서 편이 기능이 동작하지 않는듯 하다.
+     - 프록시 객체로 초기화된 필드의 엔티티를 구하려 할 때,
+       프록시의 어떤 마법에 의해 batch fetch가 동작하는 건 아닐지 추측해 본다.
      */
     @GetMapping("/api/v4/orders")
     public List<OrderQueryDto> ordersV4() {
         return orderQueryRepository.findOrderQueryDtos();
+    }
+
+    /*
+    JPA에서 DTO를 직접 반환하는 버전 - 컬렉션 조회 최적화
+
+    쿼리
+    - 루트 1번, 컬렉션 1번 (1 + 1)
+    - ToOne 관계들을 먼저 조회하고 여기서 얻은 식별자 orderId로 ToMany 관계인 OrderItem을 한꺼번에 조회
+    - Map을 이용해 매칭 성능 향상 (O(1))
+
+    뭔가... batch fetch 로직을 수동으로 돌린 느낌이다.
+     */
+    @GetMapping("/api/v5/orders")
+    public List<OrderQueryDto> ordersV5() {
+        return orderQueryRepository.findAllByDto_optimization();
     }
 
     @Getter
